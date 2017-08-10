@@ -38,7 +38,7 @@ from pyspark.serializers import CloudPickleSerializer
 __all__ = [
     "DataType", "NullType", "StringType", "BinaryType", "BooleanType", "DateType",
     "TimestampType", "DecimalType", "DoubleType", "FloatType", "ByteType", "IntegerType",
-    "LongType", "ShortType", "ArrayType", "MapType", "StructField", "StructType"]
+    "LongType", "ShortType", "ArrayType", "MapType", "PeriodType", "StructField", "StructType"]
 
 
 class DataType(object):
@@ -383,6 +383,45 @@ class MapType(DataType):
                             for k, v in obj.items())
 
 
+class PeriodType(DataType):
+    """Period data type.
+
+    :param elementType: :class:`DataType` of the elements in the period.
+
+    Elements in a period data type are not allowed to be null (None).
+    """
+
+    def __init__(self, elementType):
+        assert isinstance(elementType, (DateType, TimestampType)), "elementType should be DateType or TimestampType"
+        self.elementType = elementType
+
+    def simpleString(self):
+        return 'period(%s)' % self.elementType.simpleString()
+
+    def __repr__(self):
+        return "PeriodType(%s)" % self.elementType
+
+    def jsonValue(self):
+        return {"type": self.typeName(), "elementType": self.elementType.jsonValue(), "containsNull": False}
+
+    @classmethod
+    def fromJson(cls, json):
+        return PeriodType(_parse_datatype_json_value(json["elementType"]))
+
+    def needConversion(self):
+        return self.elementType.needConversion()
+
+    def toInternal(self, obj):
+        if not self.needConversion():
+            return obj
+        return obj and [self.elementType.toInternal(v) for v in obj]
+
+    def fromInternal(self, obj):
+        if not self.needConversion():
+            return obj
+        return obj and [self.elementType.fromInternal(v) for v in obj]
+
+
 class StructField(DataType):
     """A field in :class:`StructType`.
 
@@ -719,7 +758,7 @@ _atomic_types = [StringType, BinaryType, BooleanType, DecimalType, FloatType, Do
                  ByteType, ShortType, IntegerType, LongType, DateType, TimestampType, NullType]
 _all_atomic_types = dict((t.typeName(), t) for t in _atomic_types)
 _all_complex_types = dict((v.typeName(), v)
-                          for v in [ArrayType, MapType, StructType])
+                          for v in [ArrayType, MapType, StructType, PeriodType])
 
 
 _FIXED_DECIMAL = re.compile("decimal\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*\\)")
@@ -1021,7 +1060,7 @@ def _merge_type(a, b):
 def _need_converter(dataType):
     if isinstance(dataType, StructType):
         return True
-    elif isinstance(dataType, ArrayType):
+    elif isinstance(dataType, (ArrayType, PeriodType)):
         return _need_converter(dataType.elementType)
     elif isinstance(dataType, MapType):
         return _need_converter(dataType.keyType) or _need_converter(dataType.valueType)
@@ -1036,7 +1075,7 @@ def _create_converter(dataType):
     if not _need_converter(dataType):
         return lambda x: x
 
-    if isinstance(dataType, ArrayType):
+    if isinstance(dataType, (ArrayType, PeriodType)):
         conv = _create_converter(dataType.elementType)
         return lambda row: [conv(v) for v in row]
 
@@ -1206,6 +1245,10 @@ def _infer_schema_type(obj, dataType):
                   for o, f in zip(obj, fs)]
         return StructType(fields)
 
+    elif isinstance(dataType, PeriodType):
+        eType = _infer_schema_type(obj[0], dataType.elementType)
+        return PeriodType(eType)
+
     else:
         raise TypeError("Unexpected dataType: %s" % type(dataType))
 
@@ -1226,6 +1269,7 @@ _acceptable_types = {
     ArrayType: (list, tuple, array),
     MapType: (dict,),
     StructType: (tuple, list, dict),
+    PeriodType: (tuple, list)
 }
 
 
@@ -1407,6 +1451,18 @@ def _make_type_verifier(dataType, nullable=True, name=None):
                                         % (obj, type(obj))))
         verify_value = verify_struct
 
+    elif isinstance(dataType, PeriodType):
+        verifiers = []
+        element_verifier = _make_type_verifier(
+            dataType.elementType, False, name="element in period %s" % name)
+
+        def verify_period(obj):
+            assert_acceptable_types(obj)
+            verify_acceptable_types(obj)
+            for i in obj:
+                element_verifier(i)
+
+        verify_value = verify_period
     else:
         def verify_default(obj):
             assert_acceptable_types(obj)

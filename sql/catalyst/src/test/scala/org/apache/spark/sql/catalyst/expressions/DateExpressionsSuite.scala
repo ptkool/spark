@@ -741,4 +741,26 @@ class DateExpressionsSuite extends SparkFunSuite with ExpressionEvalHelper {
     test("2015-07-24 00:00:00", null, null)
     test(null, null, null)
   }
+
+  test("next") {
+    checkEvaluation(Next(Literal(Date.valueOf("2018-01-01"))), Date.valueOf("2018-01-02"))
+    checkEvaluation(Next(Literal(Date.valueOf("2017-12-31"))), Date.valueOf("2018-01-01"))
+    checkEvaluation(Next(Literal(Date.valueOf("2018-02-28"))), Date.valueOf("2018-03-01"))
+    checkEvaluation(Next(Literal(Date.valueOf("2020-02-28"))), Date.valueOf("2020-02-29"))
+    checkEvaluation(Next(Literal(Timestamp.valueOf("2017-12-31 10:30:33"))),
+      Timestamp.valueOf("2017-12-31 10:30:33.000001"))
+    checkEvaluation(Next(Literal(Timestamp.valueOf("2017-12-31 10:30:33.999999"))),
+      Timestamp.valueOf("2017-12-31 10:30:34"))
+  }
+
+  test("prior") {
+    checkEvaluation(Prior(Literal(Date.valueOf("2018-01-01"))), Date.valueOf("2017-12-31"))
+    checkEvaluation(Prior(Literal(Date.valueOf("2018-01-02"))), Date.valueOf("2018-01-01"))
+    checkEvaluation(Prior(Literal(Date.valueOf("2018-03-01"))), Date.valueOf("2018-02-28"))
+    checkEvaluation(Prior(Literal(Date.valueOf("2020-03-01"))), Date.valueOf("2020-02-29"))
+    checkEvaluation(Prior(Literal(Timestamp.valueOf("2017-12-31 10:30:33.000001"))),
+      Timestamp.valueOf("2017-12-31 10:30:33"))
+    checkEvaluation(Prior(Literal(Timestamp.valueOf("2017-12-31 10:30:34"))),
+      Timestamp.valueOf("2017-12-31 10:30:33.999999"))
+  }
 }

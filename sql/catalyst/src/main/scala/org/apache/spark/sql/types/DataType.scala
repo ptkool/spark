@@ -156,6 +156,12 @@ object DataType {
     ("type", JString("struct"))) =>
       StructType(fields.map(parseStructField))
 
+    case JSortedObject(
+    ("containsNull", JBool(n)),
+    ("elementType", t: JValue),
+    ("type", JString("period"))) if !n =>
+      PeriodType(parseDataType(t))
+
     // Scala/Java UDT
     case JSortedObject(
     ("class", JString(udtClass)),

@@ -2404,6 +2404,169 @@ class SQLTests(ReusedPySparkTestCase):
         self.assertEqual(df.first(), Row(longarray=[-9223372036854775808, 0, 9223372036854775807]))
 
 
+class PeriodTests(ReusedPySparkTestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        ReusedPySparkTestCase.setUpClass()
+        cls.spark = SparkSession(cls.sc)
+
+    @classmethod
+    def tearDownClass(cls):
+        ReusedPySparkTestCase.tearDownClass()
+        cls.spark.stop()
+
+    def test_period_constructor(self):
+        from pyspark.sql.functions import period
+        schema = StructType([StructField("d1", DateType()), StructField("d2", DateType())])
+        df = self.spark.createDataFrame([(datetime.date(2018, 1, 1), datetime.date(2018, 1, 31))], schema)
+        df = df.select(period(df.d1, df.d2))
+        self.assertEqual(df.first(), Row([datetime.date(2018, 1, 1), datetime.date(2018, 1, 31)]))
+
+        schema = StructType([StructField("p", PeriodType(DateType()))])
+        df = self.spark.createDataFrame([({"p": [datetime.datetime(2018, 1, 1), datetime.datetime(2018, 1, 31)]})], schema)
+        self.assertEqual(df.first(), Row(p=[datetime.date(2018, 1, 1), datetime.date(2018, 1, 31)]))
+
+        [row] = self.spark.sql("SELECT period(date '2018-01-01', date '2018-01-31')").collect()
+        self.assertEqual(row[0], [datetime.date(2018, 1, 1), datetime.date(2018, 1, 31)])
+
+    def test_period_begin(self):
+        from pyspark.sql.functions import period, period_begin
+        schema = StructType([StructField("d1", DateType()), StructField("d2", DateType())])
+        df = self.spark.createDataFrame([(datetime.date(2018, 1, 1), datetime.date(2018, 1, 31))], schema)
+        df = df.withColumn("p", period("d1", "d2"))
+        df = df.select(period_begin("p"))
+        self.assertEqual(df.first(), Row(datetime.date(2018, 1, 1)))
+
+        [row] = self.spark.sql("SELECT period_begin(period(date '2018-01-01', date '2018-01-31'))").collect()
+        self.assertEqual(row[0], datetime.date(2018, 1, 1))
+
+    def test_period_end(self):
+        from pyspark.sql.functions import period, period_end
+        schema = StructType([StructField("d1", DateType()), StructField("d2", DateType())])
+        df = self.spark.createDataFrame([(datetime.date(2018, 1, 1), datetime.date(2018, 1, 31))], schema)
+        df = df.withColumn("p", period("d1", "d2"))
+        df = df.select(period_end("p"))
+        self.assertEqual(df.first(), Row(datetime.date(2018, 1, 31)))
+
+        [row] = self.spark.sql("SELECT period_end(period(date '2018-01-01', date '2018-01-31'))").collect()
+        self.assertEqual(row[0], datetime.date(2018, 1, 31))
+
+    def test_period_last(self):
+        from pyspark.sql.functions import period, period_last
+        schema = StructType([StructField("d1", DateType()), StructField("d2", DateType())])
+        df = self.spark.createDataFrame([(datetime.date(2018, 1, 1), datetime.date(2018, 1, 31))], schema)
+        df = df.withColumn("p", period("d1", "d2"))
+        df = df.select(period_last("p"))
+        self.assertEqual(df.first(), Row(datetime.date(2018, 1, 30)))
+
+        [row] = self.spark.sql("SELECT period_last(period(date '2018-01-01', date '2018-01-31'))").collect()
+        self.assertEqual(row[0], datetime.date(2018, 1, 30))
+
+    def test_period_equals(self):
+        from pyspark.sql.functions import period, period_equals
+        schema = StructType([
+            StructField("d1", DateType()),
+            StructField("d2", DateType()),
+            StructField("d3", DateType()),
+            StructField("d4", DateType())
+        ])
+        data = [(
+            datetime.date(2018, 1, 1),
+            datetime.date(2018, 1, 31),
+            datetime.date(2018, 4, 1),
+            datetime.date(2018, 6, 30)
+        )]
+
+        tmpPath = tempfile.mkdtemp()
+        shutil.rmtree(tmpPath)
+
+        df = self.spark.createDataFrame(data, schema)
+        df = df.withColumn("p1", period("d1", "d2")).withColumn("p2", period("d3", "d4"))
+        df.write.saveAsTable("t1", mode="overwrite", path=tmpPath)
+
+        df = df.select("p1").where(period_equals("p1", "p1"))
+        self.assertEqual(df.first(), Row([datetime.date(2018, 1, 1), datetime.date(2018, 1, 31)]))
+
+        [row] = self.spark.sql("SELECT p1 FROM t1 WHERE period_equals(p1, p1)").collect()
+        self.assertEqual(row[0], [datetime.date(2018, 1, 1), datetime.date(2018, 1, 31)])
+
+        row = self.spark.sql("SELECT p1 FROM t1 WHERE period_equals(p1, p2)").collect()
+        self.assertTrue(not row)
+
+        self.spark.sql("DROP TABLE t1")
+
+    def test_period_contains(self):
+        from pyspark.sql.functions import period, period_contains
+        schema = StructType([
+            StructField("d1", TimestampType()),
+            StructField("d2", TimestampType()),
+            StructField("d3", TimestampType()),
+            StructField("d4", TimestampType())
+        ])
+        data = [(
+            datetime.datetime(2018, 1, 1, 10, 30, 22),
+            datetime.datetime(2018, 8, 31, 14, 23, 2),
+            datetime.datetime(2018, 3, 31, 22, 0, 0),
+            datetime.datetime(2018, 8, 30, 0, 0, 0)
+        )]
+
+        tmpPath = tempfile.mkdtemp()
+        shutil.rmtree(tmpPath)
+
+        df = self.spark.createDataFrame(data, schema)
+        df = df.withColumn("p1", period("d1", "d2")).withColumn("p2", period("d3", "d4"))
+        df.write.saveAsTable("t1", mode="overwrite", path=tmpPath)
+
+        p = [datetime.datetime(2018, 1, 1, 10, 30, 22), datetime.datetime(2018, 8, 31, 14, 23, 2)]
+
+        df = df.select("p1").where(period_contains("p1", "p1"))
+        self.assertEqual(df.first(), Row(p))
+
+        df = df.select("p1").where(period_contains("p1", "p2"))
+        self.assertEqual(df.first(), Row(p))
+
+        [row] = self.spark.sql("SELECT p1 FROM t1 WHERE period_contains(p1, p1)").collect()
+        self.assertEqual(row[0], p)
+
+        [row] = self.spark.sql("SELECT p1 FROM t1 WHERE period_contains(p1, p2)").collect()
+        self.assertEqual(row[0], p)
+
+        self.spark.sql("DROP TABLE t1")
+
+    def test_period_intersect(self):
+        from pyspark.sql.functions import period, period_intersect
+        schema = StructType([
+            StructField("d1", TimestampType()),
+            StructField("d2", TimestampType()),
+            StructField("d3", TimestampType()),
+            StructField("d4", TimestampType())
+        ])
+        data = [(
+            datetime.datetime(2005, 2, 3, 10, 10, 10, 100),
+            datetime.datetime(2007, 2, 3, 10, 10, 10, 100),
+            datetime.datetime(2004, 2, 3, 10, 10, 10, 0),
+            datetime.datetime(2006, 2, 3, 10, 10, 10, 0)
+        )]
+
+        tmpPath = tempfile.mkdtemp()
+        shutil.rmtree(tmpPath)
+
+        df = self.spark.createDataFrame(data, schema)
+        df = df.withColumn("p1", period("d1", "d2")).withColumn("p2", period("d3", "d4"))
+        df.write.saveAsTable("t1", mode="overwrite", path=tmpPath)
+
+        p = [datetime.datetime(2005, 2, 3, 10, 10, 10, 100), datetime.datetime(2005, 2, 3, 10, 10, 10, 0)]
+
+        df = df.select(period_intersect("p2", "p1"))
+        self.assertEqual(df.first(), Row(p))
+
+        [row] = self.spark.sql("SELECT period_intersect(p2, p1) FROM t1").collect()
+        self.assertEqual(row[0], p)
+
+        self.spark.sql("DROP TABLE t1")
+
+
 class HiveSparkSubmitTests(SparkSubmitTests):
 
     def test_hivecontext(self):

@@ -471,6 +471,217 @@ def monotonically_increasing_id():
     return Column(sc._jvm.functions.monotonically_increasing_id())
 
 
+@since(2.4)
+def period(col1, col2):
+    """Contruct a period column.
+
+    Both inputs should be datetime columns (:class:`DateType` or :class:`TimestampType`).
+
+    >>> df = spark.createDataFrame([('2018-04-08', '2018-05-01')], ("a", "b"))
+    >>> df.select(period(df["a"].cast("date"), df["b"].cast("date")).alias("p")).collect()
+    [Row(p=[datetime.date(2018, 4, 8), datetime.date(2018, 5, 1)])]
+    """
+    sc = SparkContext._active_spark_context
+    return Column(sc._jvm.functions.period(_to_java_column(col1), _to_java_column(col2)))
+
+
+@since(2.4)
+def period_begin(col):
+    """Column representing the beginning bound of a period column.
+
+    >>> df = spark.createDataFrame([('2018-04-08', '2018-05-01')], ("a", "b"))
+    >>> df = df.withColumn("p", period(df["a"].cast("date"), df["b"].cast("date")))
+    >>> df.select(period_begin("p").alias("b")).collect()
+    [Row(b=datetime.date(2018, 4, 8))]
+    """
+    sc = SparkContext._active_spark_context
+    return Column(sc._jvm.functions.period_begin(_to_java_column(col)))
+
+
+@since(2.4)
+def period_end(col):
+    """Column representing the end bound of a period column.
+
+    >>> df = spark.createDataFrame([('2018-04-08', '2018-05-01')], ("a", "b"))
+    >>> df = df.withColumn("p", period(df["a"].cast("date"), df["b"].cast("date")))
+    >>> df.select(period_end("p").alias("e")).collect()
+    [Row(e=datetime.date(2018, 5, 1))]
+    """
+    sc = SparkContext._active_spark_context
+    return Column(sc._jvm.functions.period_end(_to_java_column(col)))
+
+
+@since(2.4)
+def period_last(col):
+    """Column representing last value of the Period argument (that is, the ending bound minus
+    one granule of the element type of the argument).
+
+    >>> df = spark.createDataFrame([('2018-04-08 10:30:25', '2018-05-01 12:10:02')], ("t1", "t2"))
+    >>> df = df.withColumn("p", period(df["t1"].cast("timestamp"), df["t2"].cast("timestamp")))
+    >>> df.select(period_last("p").alias("l")).collect()
+    [Row(l=datetime.datetime(2018, 5, 1, 12, 10, 1, 999999))]
+    """
+    sc = SparkContext._active_spark_context
+    return Column(sc._jvm.functions.period_last(_to_java_column(col)))
+
+
+@since(2.4)
+def period_equals(col1, col2):
+    """Column comparing two period expression for equality.
+
+    >>> df = spark.createDataFrame([('2018-04-08', '2018-05-01')], ("d1", "d2"))
+    >>> df = df.withColumn("p", period(df["d1"].cast("date"), df["d2"].cast("date")))
+    >>> df.select("p").where(period_equals("p", "p")).collect()
+    [Row(p=[datetime.date(2018, 4, 8), datetime.date(2018, 5, 1)])]
+    """
+    sc = SparkContext._active_spark_context
+    return Column(sc._jvm.functions.period_equals(_to_java_column(col1), _to_java_column(col2)))
+
+
+@since(2.4)
+def period_contains(col1, col2):
+    """Column comparing two period expression for equality.
+
+    >>> from datetime import date
+    >>> data = [(date(2017, 1, 1), date(2017, 8, 31), date(2017, 3, 31), date(2017, 8, 30))]
+    >>> df = spark.createDataFrame(data, ("d1", "d2", "d3", "d4"))
+    >>> df = df.withColumn("p1", period("d1", "d2")).withColumn("p2", period("d3", "d4"))
+    >>> df.select("p1").where(period_contains("p1", "p2")).collect()
+    [Row(p1=[datetime.date(2017, 1, 1), datetime.date(2017, 8, 31)])]
+    """
+    sc = SparkContext._active_spark_context
+    return Column(sc._jvm.functions.period_contains(_to_java_column(col1), _to_java_column(col2)))
+
+
+@since(2.4)
+def period_intersect(col1, col2):
+    """Column that returns the portion of the period expressions that is common between
+    the period expressions if they overlap.
+
+    >>> from datetime import date
+    >>> data = [(date(2005, 2, 3), date(2007, 2, 3), date(2004, 2, 3), date(2006, 2, 3))]
+    >>> df = spark.createDataFrame(data, ("d1", "d2", "d3", "d4"))
+    >>> df = df.withColumn("p1", period("d1", "d2")).withColumn("p2", period("d3", "d4"))
+    >>> df.select(period_intersect("p2", "p1").alias("p")).collect()
+    [Row(p=[datetime.date(2005, 2, 3), datetime.date(2006, 2, 3)])]
+    """
+    sc = SparkContext._active_spark_context
+    return Column(sc._jvm.functions.period_intersect(_to_java_column(col1), _to_java_column(col2)))
+
+
+@since(2.4)
+def period_ldiff(col1, col2):
+    """Column that returns the portion of the first Period expression that exists before the
+    beginning of the second Period expression when the Period expressions overlap.
+
+    >>> from datetime import date
+    >>> data = [(date(2016, 7, 25), date(2016, 8, 2), date(2016, 7, 31), date(2016, 8, 30))]
+    >>> df = spark.createDataFrame(data, ("d1", "d2", "d3", "d4"))
+    >>> df = df.withColumn("p1", period("d1", "d2")).withColumn("p2", period("d3", "d4"))
+    >>> df.select(period_ldiff("p1", "p2").alias("p")).collect()
+    [Row(p=[datetime.date(2016, 7, 25), datetime.date(2016, 7, 31)])]
+    """
+    sc = SparkContext._active_spark_context
+    return Column(sc._jvm.functions.period_ldiff(_to_java_column(col1), _to_java_column(col2)))
+
+
+@since(2.4)
+def period_rdiff(col1, col2):
+    """Column that returns the portion of the first Period expression that exists from the
+    end of the second Period expression when the Period expressions overlap.
+
+    >>> from datetime import date
+    >>> data = [(date(2017, 2, 3), date(2018, 2, 3), date(2017, 4, 2), date(2018, 1, 3))]
+    >>> df = spark.createDataFrame(data, ("d1", "d2", "d3", "d4"))
+    >>> df = df.withColumn("p1", period("d1", "d2")).withColumn("p2", period("d3", "d4"))
+    >>> df.select(period_rdiff("p1", "p2").alias("p")).collect()
+    [Row(p=[datetime.date(2018, 1, 3), datetime.date(2018, 2, 3)])]
+    """
+    sc = SparkContext._active_spark_context
+    return Column(sc._jvm.functions.period_rdiff(_to_java_column(col1), _to_java_column(col2)))
+
+
+@since(2.4)
+def period_normalize(col1, col2):
+    """Column that returns a Period value that is the combination of the two Period expressions
+    if the Period expressions overlap or meet.
+
+    >>> from datetime import date
+    >>> data = [(date(2004, 2, 3), date(2006, 2, 3), date(2005, 2, 3), date(2007, 2, 3))]
+    >>> df = spark.createDataFrame(data, ("d1", "d2", "d3", "d4"))
+    >>> df = df.withColumn("p1", period("d1", "d2")).withColumn("p2", period("d3", "d4"))
+    >>> df.select(period_normalize("p1", "p2").alias("p")).collect()
+    [Row(p=[datetime.date(2004, 2, 3), datetime.date(2007, 2, 3)])]
+    """
+    sc = SparkContext._active_spark_context
+    return Column(sc._jvm.functions.period_normalize(_to_java_column(col1), _to_java_column(col2)))
+
+
+@since(2.4)
+def period_meets(col1, col2):
+    """Column that returns a Period value that is the combination of the two Period expressions
+    if the Period expressions overlap or meet.
+
+    >>> from datetime import date
+    >>> data = [(date(2004, 2, 3), date(2006, 2, 3), date(2006, 2, 3), date(2007, 2, 3))]
+    >>> df = spark.createDataFrame(data, ("d1", "d2", "d3", "d4"))
+    >>> df = df.withColumn("p1", period("d1", "d2")).withColumn("p2", period("d3", "d4"))
+    >>> df.select(period_meets("p1", "p2").alias("meets")).collect()
+    [Row(meets=True)]
+    """
+    sc = SparkContext._active_spark_context
+    return Column(sc._jvm.functions.period_meets(_to_java_column(col1), _to_java_column(col2)))
+
+
+@since(2.4)
+def period_overlaps(col1, col2):
+    """Column that returns true if two Period expressions overlap.
+
+    >>> from datetime import date
+    >>> data = [(date(2004, 2, 3), date(2006, 2, 3), date(2005, 1, 1), date(2007, 2, 3))]
+    >>> df = spark.createDataFrame(data, ("d1", "d2", "d3", "d4"))
+    >>> df = df.withColumn("p1", period("d1", "d2")).withColumn("p2", period("d3", "d4"))
+    >>> df.select(period_overlaps("p1", "p2").alias("overlaps")).collect()
+    [Row(overlaps=True)]
+    """
+    sc = SparkContext._active_spark_context
+    return Column(sc._jvm.functions.period_overlaps(_to_java_column(col1), _to_java_column(col2)))
+
+
+@since(2.4)
+def period_precedes(col1, col2):
+    """Column that returns true if first Period expression precedes second Period expression.
+
+    >>> from datetime import date
+    >>> data = [(date(2004, 2, 3), date(2006, 2, 3), date(2006, 10, 11), date(2007, 2, 3))]
+    >>> df = spark.createDataFrame(data, ("d1", "d2", "d3", "d4"))
+    >>> df = df.withColumn("p1", period("d1", "d2")).withColumn("p2", period("d3", "d4"))
+    >>> df.select(period_precedes("p1", "p2").alias("precedes")).collect()
+    [Row(precedes=True)]
+    >>> df.select(period_precedes("p2", "p1").alias("precedes")).collect()
+    [Row(precedes=False)]
+    """
+    sc = SparkContext._active_spark_context
+    return Column(sc._jvm.functions.period_precedes(_to_java_column(col1), _to_java_column(col2)))
+
+
+@since(2.4)
+def period_succeeds(col1, col2):
+    """Column that returns true if first Period expression succeeds second Period expression.
+
+    >>> from datetime import date
+    >>> data = [(date(2004, 2, 3), date(2006, 2, 3), date(2006, 10, 11), date(2007, 2, 3))]
+    >>> df = spark.createDataFrame(data, ("d1", "d2", "d3", "d4"))
+    >>> df = df.withColumn("p1", period("d1", "d2")).withColumn("p2", period("d3", "d4"))
+    >>> df.select(period_succeeds("p1", "p2").alias("succeeds")).collect()
+    [Row(succeeds=False)]
+    >>> df.select(period_succeeds("p2", "p1").alias("succeeds")).collect()
+    [Row(succeeds=True)]
+    """
+    sc = SparkContext._active_spark_context
+    return Column(sc._jvm.functions.period_succeeds(_to_java_column(col1), _to_java_column(col2)))
+
+
 @since(1.6)
 def nanvl(col1, col2):
     """Returns col1 if it is not NaN, or col2 if col1 is NaN.

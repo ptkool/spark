@@ -413,6 +413,18 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSQLContext {
     )
   }
 
+  test("period constructor") {
+    val df = Seq((1, "str")).toDF("a", "b")
+    val result = df.select(struct((col("a") * 2), col("b")))
+
+    val expectedType = StructType(Seq(
+      StructField("col1", IntegerType, nullable = false),
+      StructField("b", StringType)
+    ))
+    assert(result.first.schema(0).dataType === expectedType)
+    checkAnswer(result, Row(Row(2, "str")))
+  }
+
   private def assertValuesDoNotChangeAfterCoalesceOrUnion(v: Column): Unit = {
     import DataFrameFunctionsSuite.CodegenFallbackExpr
     for ((codegenFallback, wholeStage) <- Seq((true, false), (false, false), (false, true))) {

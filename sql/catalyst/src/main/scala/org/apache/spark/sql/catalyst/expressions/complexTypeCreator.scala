@@ -452,3 +452,47 @@ case class StringToMap(text: Expression, pairDelim: Expression, keyValueDelim: E
 
   override def prettyName: String = "str_to_map"
 }
+
+/**
+ * Returns a Period with evaluated begin and end expressions.
+ */
+@ExpressionDescription(
+  usage = "_FUNC_(expr, ...) - Returns a period with the given elements.",
+  extended = """
+    Examples:
+      > SELECT _FUNC_(1, 2, 3);
+       [1,2,3]
+  """)
+case class CreatePeriod(args: Expression*) extends BinaryExpression {
+
+  override def left: Expression = args(0)
+
+  override def right: Expression = if (args.length > 1) args(1) else Next(left)
+
+  override def checkInputDataTypes(): TypeCheckResult = {
+    TypeUtils.checkForSameTypeInputExpr(children.map(_.dataType), s"function $prettyName")
+  }
+
+  override def dataType: PeriodType = PeriodType(left.dataType)
+
+  override def nullSafeEval(input1: Any, input2: Any): Any = {
+    new GenericArrayData(Seq(input1, input2))
+  }
+
+  override def doGenCode(ctx: CodegenContext, ev: ExprCode): ExprCode = {
+    nullSafeCodeGen(ctx, ev, (eval1, eval2) => {
+      val genericArrayClass = classOf[GenericArrayData].getName
+      val arrayName = ctx.freshName("array")
+
+      ctx.addMutableState("Object[]", arrayName, s"$arrayName = new Object[2];")
+
+      s"""
+        $arrayName[0] = $eval1;
+        $arrayName[1] = $eval2;
+        ${ev.value} = new $genericArrayClass($arrayName);
+      """
+    })
+  }
+
+  override def prettyName: String = "period"
+}

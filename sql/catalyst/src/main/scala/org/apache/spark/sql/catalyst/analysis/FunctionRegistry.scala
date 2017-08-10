@@ -17,6 +17,7 @@
 
 package org.apache.spark.sql.catalyst.analysis
 
+import java.time.Period
 import java.util.Locale
 import javax.annotation.concurrent.GuardedBy
 
@@ -24,7 +25,6 @@ import scala.collection.mutable
 import scala.language.existentials
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
-
 import org.apache.spark.sql.AnalysisException
 import org.apache.spark.sql.catalyst.FunctionIdentifier
 import org.apache.spark.sql.catalyst.analysis.FunctionRegistry.FunctionBuilder
@@ -483,7 +483,22 @@ object FunctionRegistry {
     castAlias("date", DateType),
     castAlias("timestamp", TimestampType),
     castAlias("binary", BinaryType),
-    castAlias("string", StringType)
+    castAlias("string", StringType),
+
+    // period functions
+    expression[CreatePeriod]("period"),
+    expression[PeriodBegin]("period_begin"),
+    expression[PeriodEnd]("period_end"),
+    expression[PeriodLast]("period_last"),
+    expression[PeriodEquals]("period_equals"),
+    expression[PeriodContains]("period_contains"),
+    expression[PeriodIntersect]("period_intersect"),
+    expression[PeriodNormalize]("period_normalize"),
+    expression[PeriodLDiff]("period_ldiff"),
+    expression[PeriodRDiff]("period_rdiff"),
+    expression[PeriodMeets]("period_meets"),
+    expression[PeriodSucceeds]("period_succeeds"),
+    expression[PeriodPrecedes]("period_precedes")
   )
 
   val builtin: SimpleFunctionRegistry = {

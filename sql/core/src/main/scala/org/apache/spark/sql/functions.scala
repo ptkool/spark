@@ -1142,6 +1142,158 @@ object functions {
   def not(e: Column): Column = !e
 
   /**
+    * Creates a new period column..
+    *
+    * @group normal_funcs
+    * @since 2.4.0
+    */
+  def period(begin: Column): Column = withExpr {
+    CreatePeriod(begin.expr)
+  }
+
+  /**
+    * Creates a new period column. The input columns must all have the same data type.
+    *
+    * @group normal_funcs
+    * @since 2.4.0
+    */
+  def period(begin: Column, end: Column): Column = withExpr {
+    CreatePeriod(begin.expr, end.expr)
+  }
+
+  /**
+   * Bound function that returns the beginning bound of the period argument.
+   *
+   * @group normal_funcs
+   * @since 2.4.0
+   */
+  def period_begin(e: Column): Column = withExpr { PeriodBegin(e.expr) }
+
+  /**
+   * Bound function that returns the ending bound of the period argument.
+   *
+   * @group normal_funcs
+   * @since 2.4.0
+   */
+  def period_end(e: Column): Column = withExpr { PeriodEnd(e.expr) }
+
+  /**
+   * Bound function that returns the last value of the period argument (that is, the ending bound
+   * minus one granule of the element type of the argument).
+   *
+   * @group normal_funcs
+   * @since 2.4.0
+   */
+  def period_last(e: Column): Column = withExpr { PeriodLast(e.expr) }
+
+  /**
+   * Bound function that returns the last value of the period argument (that is, the ending bound
+   * minus one granule of the element type of the argument).
+   *
+   * @group normal_funcs
+   * @since 2.4.0
+   */
+  def period_equals(l: Column, r: Column): Column = withExpr { PeriodEquals(l.expr, r.expr) }
+
+  /**
+   * Bound function that returns the last value of the period argument (that is, the ending bound
+   * minus one granule of the element type of the argument).
+   *
+   * @group normal_funcs
+   * @since 2.4.0
+   */
+  def period_contains(l: Column, r: Column): Column = withExpr { PeriodContains(l.expr, r.expr) }
+
+  /**
+   * Returns the portion of the period expressions that is common between the period expressions
+   * if they overlap.
+   *
+   * @group normal_funcs
+   * @since 2.4.0
+   */
+  def period_intersect(l: Column, r: Column): Column = withExpr { PeriodIntersect(l.expr, r.expr) }
+
+  /**
+   * Returns the portion of the first Period expression that exists before the beginning of the
+   * second Period expression when the Period expressions overlap.
+   *
+   * @group normal_funcs
+   * @since 2.4.0
+   */
+  def period_ldiff(l: Column, r: Column): Column = withExpr { PeriodLDiff(l.expr, r.expr) }
+
+  /**
+   * Returns the portion of the first Period expression that exists from the end of the second
+   * Period expression when the Period expressions overlap.
+   *
+   * @group normal_funcs
+   * @since 2.4.0
+   */
+  def period_rdiff(l: Column, r: Column): Column = withExpr { PeriodRDiff(l.expr, r.expr) }
+
+  /**
+   * Returns a Period value that is the combination of the two Period expressions if the Period
+   * expressions overlap or meet.
+   *
+   * @group normal_funcs
+   * @since 2.4.0
+   */
+  def period_normalize(l: Column, r: Column): Column = withExpr { PeriodNormalize(l.expr, r.expr) }
+
+  /**
+   * Returns true two Period expressions meet.
+   *
+   * @group normal_funcs
+   * @since 2.4.0
+   */
+  def period_meets(l: Column, r: Column): Column = withExpr { PeriodMeets(l.expr, r.expr) }
+
+  /**
+   * Returns true if two Period expressions overlap.
+   *
+   * @group normal_funcs
+   * @since 2.4.0
+   */
+  def period_overlaps(l: Column, r: Column): Column = withExpr { PeriodOverlaps(l.expr, r.expr) }
+
+  /**
+    * Returns true if first Period expression precedes second Period expression."
+    *
+    * @group normal_funcs
+    * @since 2.4.0
+    */
+  def period_precedes(l: Column, r: Column): Column = withExpr { PeriodPrecedes(l.expr, r.expr) }
+
+
+  /**
+    * Returns true if first Period expression succeeds second Period expression."
+    *
+    * @group normal_funcs
+    * @since 2.4.0
+    */
+  def period_succeeds(l: Column, r: Column): Column = withExpr { PeriodSucceeds(l.expr, r.expr) }
+
+  /**
+    * Returns true if first Period expression precedes second Period expression."
+    *
+    * @group normal_funcs
+    * @since 2.4.0
+    */
+  def period_immediately_precedes(l: Column, r: Column): Column = withExpr {
+    PeriodImmediatelyPrecedes(l.expr, r.expr)
+  }
+
+  /**
+    * Returns true if first Period expression succeeds second Period expression."
+    *
+    * @group normal_funcs
+    * @since 2.4.0
+    */
+  def period_immediately_succeeds(l: Column, r: Column): Column = withExpr {
+    PeriodImmediatelySucceeds(l.expr, r.expr)
+  }
+
+  /**
    * Generate a random column with independent and identically distributed (i.i.d.) samples
    * from U[0.0, 1.0].
    *

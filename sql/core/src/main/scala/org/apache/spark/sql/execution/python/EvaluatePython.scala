@@ -126,6 +126,9 @@ object EvaluatePython {
     case (c, ArrayType(elementType, _)) if c.getClass.isArray =>
       new GenericArrayData(c.asInstanceOf[Array[_]].map(e => fromJava(e, elementType)))
 
+    case (c, PeriodType(elementType)) =>
+      new GenericArrayData(c.asInstanceOf[Array[_]].map(e => fromJava(e, elementType)))
+
     case (javaMap: java.util.Map[_, _], MapType(keyType, valueType, _)) =>
       ArrayBasedMapData(
         javaMap,

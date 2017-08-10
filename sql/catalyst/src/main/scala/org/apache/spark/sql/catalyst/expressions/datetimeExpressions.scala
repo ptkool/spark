@@ -22,10 +22,10 @@ import java.text.DateFormat
 import java.util.{Calendar, TimeZone}
 
 import scala.util.control.NonFatal
-
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.codegen.{CodegenContext, CodegenFallback, ExprCode}
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
+import org.apache.spark.sql.catalyst.util.DateTimeUtils.{SQLDate, SQLTimestamp}
 import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.types.{CalendarInterval, UTF8String}
 
@@ -1374,5 +1374,71 @@ case class DateDiff(endDate: Expression, startDate: Expression)
 
   override def doGenCode(ctx: CodegenContext, ev: ExprCode): ExprCode = {
     defineCodeGen(ctx, ev, (end, start) => s"$end - $start")
+  }
+}
+
+/**
+ * Proximity function that returns the succeeding value of the argument such that there is one
+ * granule of the argument type between the argument and the returned value.
+ */
+@ExpressionDescription(
+  usage = "_FUNC_(datetimeExpr) - Returns the value of `datetimeExpr` plus one granule.",
+  extended = """
+    Examples:
+      > SELECT _FUNC_('2009-07-30');
+       2009-07-31
+
+      > SELECT _FUNC_('2009-07-31');
+       2009-08-01
+  """)
+case class Next(child: Expression)
+  extends UnaryExpression with ImplicitCastInputTypes {
+
+  override def inputTypes: Seq[AbstractDataType] = Seq(AnyDataType)
+
+  override def dataType: DataType = child.dataType
+
+  override def nullSafeEval(input: Any): Any = {
+    dataType match {
+      case DateType => input.asInstanceOf[SQLDate] + 1
+      case TimestampType => input.asInstanceOf[SQLTimestamp] + 1
+    }
+  }
+
+  override def doGenCode(ctx: CodegenContext, ev: ExprCode): ExprCode = {
+    defineCodeGen(ctx, ev, eval => s"$eval + 1;")
+  }
+}
+
+/**
+ * Proximity function that returns the preceding value of the argument such that there is one
+ * granule of the argument type between the argument and the returned value.
+ */
+@ExpressionDescription(
+  usage = "_FUNC_(datetimeExpr) - Returns the value of `datetimeExpr` plus one granule.",
+  extended = """
+    Examples:
+      > SELECT _FUNC_('2009-07-30');
+       2009-07-31
+
+      > SELECT _FUNC_('2009-07-31');
+       2009-08-01
+  """)
+case class Prior(child: Expression)
+  extends UnaryExpression with ImplicitCastInputTypes {
+
+  override def inputTypes: Seq[AbstractDataType] = Seq(AnyDataType)
+
+  override def dataType: DataType = child.dataType
+
+  override def nullSafeEval(input: Any): Any = {
+    dataType match {
+      case DateType => input.asInstanceOf[SQLDate] - 1
+      case TimestampType => input.asInstanceOf[SQLTimestamp] - 1
+    }
+  }
+
+  override def doGenCode(ctx: CodegenContext, ev: ExprCode): ExprCode = {
+    defineCodeGen(ctx, ev, eval => s"$eval - 1;")
   }
 }

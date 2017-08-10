@@ -50,6 +50,8 @@ class LiteralExpressionSuite extends SparkFunSuite with ExpressionEvalHelper {
     checkEvaluation(Literal.create(null, ArrayType(StringType, true)), null)
     checkEvaluation(Literal.create(null, MapType(StringType, IntegerType)), null)
     checkEvaluation(Literal.create(null, StructType(Seq.empty)), null)
+    checkEvaluation(Literal.create(null, PeriodType(DateType)), Array())
+    checkEvaluation(Literal.create(null, PeriodType(TimestampType)), Array())
   }
 
   test("default") {
@@ -70,6 +72,8 @@ class LiteralExpressionSuite extends SparkFunSuite with ExpressionEvalHelper {
     checkEvaluation(Literal.default(ArrayType(StringType)), Array())
     checkEvaluation(Literal.default(MapType(IntegerType, StringType)), Map())
     checkEvaluation(Literal.default(StructType(StructField("a", StringType) :: Nil)), Row(""))
+    checkEvaluation(Literal.default(PeriodType(DateType)), Array())
+    checkEvaluation(Literal.default(PeriodType(TimestampType)), Array())
     // ExamplePointUDT.sqlType is ArrayType(DoubleType, false).
     checkEvaluation(Literal.default(new ExamplePointUDT), Array())
   }
