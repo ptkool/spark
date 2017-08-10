@@ -1874,7 +1874,7 @@ class UserDefinedFunction(object):
 
     .. versionadded:: 1.3
     """
-    def __init__(self, func, returnType, name=None):
+    def __init__(self, func, returnType, name=None, nullable=True):
         if not callable(func):
             raise TypeError(
                 "Not a function or callable (__call__ is not defined): "
@@ -1889,6 +1889,7 @@ class UserDefinedFunction(object):
         self._name = name or (
             func.__name__ if hasattr(func, '__name__')
             else func.__class__.__name__)
+        self._nullable = nullable
 
     @property
     def _judf(self):
@@ -1910,6 +1911,7 @@ class UserDefinedFunction(object):
         jdt = spark._jsparkSession.parseDataType(self.returnType.json())
         judf = sc._jvm.org.apache.spark.sql.execution.python.UserDefinedPythonFunction(
             self._name, wrapped_func, jdt)
+        judf = judf.withNullability(self._nullable)
         return judf
 
     def __call__(self, *cols):
@@ -1917,9 +1919,33 @@ class UserDefinedFunction(object):
         sc = SparkContext._active_spark_context
         return Column(judf.apply(_to_seq(sc, cols, _to_java_column)))
 
+    def _wrapped(self):
+        """
+        Wrap this udf with a function and attach docstring from func
+        """
+
+        # It is possible for a callable instance without __name__ attribute or/and
+        # __module__ attribute to be wrapped here. For example, functools.partial. In this case,
+        # we should avoid wrapping the attributes from the wrapped function to the wrapper
+        # function. So, we take out these attribute names from the default names to set and
+        # then manually assign it after being wrapped.
+        assignments = tuple(
+            a for a in functools.WRAPPER_ASSIGNMENTS if a != '__name__' and a != '__module__')
+
+        @functools.wraps(self.func, assigned=assignments)
+        def wrapper(*args):
+            return self(*args)
+
+        wrapper.__name__ = self._name
+        wrapper.__module__ = (self.func.__module__ if hasattr(self.func, '__module__')
+                              else self.func.__class__.__module__)
+        wrapper.func = self.func
+        wrapper.returnType = self.returnType
+
+        return wrapper
 
 @since(1.3)
-def udf(f=None, returnType=StringType()):
+def udf(f=None, returnType=StringType(), nullable=True):
     """Creates a :class:`Column` expression representing a user defined function (UDF).
 
     .. note:: The user-defined functions must be deterministic. Due to optimization,
@@ -1949,26 +1975,18 @@ def udf(f=None, returnType=StringType()):
     |         8|      JOHN DOE|          22|
     +----------+--------------+------------+
     """
-    def _udf(f, returnType=StringType()):
-        udf_obj = UserDefinedFunction(f, returnType)
-
-        @functools.wraps(f)
-        def wrapper(*args):
-            return udf_obj(*args)
-
-        wrapper.func = udf_obj.func
-        wrapper.returnType = udf_obj.returnType
-
-        return wrapper
+    def _udf(f, returnType=StringType(), nullable=True):
+        udf_obj = UserDefinedFunction(f, returnType, None, nullable)
+        return udf_obj._wrapped()
 
     # decorator @udf, @udf() or @udf(dataType())
     if f is None or isinstance(f, (str, DataType)):
         # If DataType has been passed as a positional argument
         # for decorator use it as a returnType
         return_type = f or returnType
-        return functools.partial(_udf, returnType=return_type)
+        return functools.partial(_udf, returnType=return_type, nullable=nullable)
     else:
-        return _udf(f=f, returnType=returnType)
+        return _udf(f=f, returnType=returnType, nullable=nullable)
 
 
 blacklist = ['map', 'since', 'ignore_unicode_prefix']
