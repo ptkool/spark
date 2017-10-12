@@ -204,7 +204,7 @@ class Catalog(object):
 
     @ignore_unicode_prefix
     @since(2.0)
-    def registerFunction(self, name, f, returnType=StringType()):
+    def registerFunction(self, name, f, returnType=StringType(), nullable=True):
         """Registers a python function (including lambda function) as a UDF
         so it can be used in SQL statements.
 
@@ -215,6 +215,7 @@ class Catalog(object):
         :param name: name of the UDF
         :param f: python function
         :param returnType: a :class:`pyspark.sql.types.DataType` object
+        :param nullable: nullability
 
         >>> spark.catalog.registerFunction("stringLengthString", lambda x: len(x))
         >>> spark.sql("SELECT stringLengthString('test')").collect()
@@ -230,7 +231,7 @@ class Catalog(object):
         >>> spark.sql("SELECT stringLengthInt('test')").collect()
         [Row(stringLengthInt(test)=4)]
         """
-        udf = UserDefinedFunction(f, returnType, name)
+        udf = UserDefinedFunction(f, returnType, nullable, name)
         self._jsparkSession.udf().registerPython(name, udf._judf)
 
     @since(2.0)

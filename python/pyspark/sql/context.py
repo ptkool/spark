@@ -174,7 +174,7 @@ class SQLContext(object):
 
     @ignore_unicode_prefix
     @since(1.2)
-    def registerFunction(self, name, f, returnType=StringType()):
+    def registerFunction(self, name, f, returnType=StringType(), nullable=True):
         """Registers a python function (including lambda function) as a UDF
         so it can be used in SQL statements.
 
@@ -185,6 +185,7 @@ class SQLContext(object):
         :param name: name of the UDF
         :param f: python function
         :param returnType: a :class:`pyspark.sql.types.DataType` object
+        :param nullable: nullability
 
         >>> sqlContext.registerFunction("stringLengthString", lambda x: len(x))
         >>> sqlContext.sql("SELECT stringLengthString('test')").collect()
@@ -200,7 +201,7 @@ class SQLContext(object):
         >>> sqlContext.sql("SELECT stringLengthInt('test')").collect()
         [Row(stringLengthInt(test)=4)]
         """
-        self.sparkSession.catalog.registerFunction(name, f, returnType)
+        self.sparkSession.catalog.registerFunction(name, f, returnType, nullable)
 
     @ignore_unicode_prefix
     @since(2.1)
@@ -544,8 +545,8 @@ class UDFRegistration(object):
     def __init__(self, sqlContext):
         self.sqlContext = sqlContext
 
-    def register(self, name, f, returnType=StringType()):
-        return self.sqlContext.registerFunction(name, f, returnType)
+    def register(self, name, f, returnType=StringType(), nullable=True):
+        return self.sqlContext.registerFunction(name, f, returnType, nullable)
 
     register.__doc__ = SQLContext.registerFunction.__doc__
 
