@@ -35,7 +35,7 @@ def _wrap_function(sc, func, returnType):
                                   sc.pythonVer, broadcast_vars, sc._javaAccumulator)
 
 
-def _create_udf(f, returnType, evalType):
+def _create_udf(f, returnType, evalType, nullable=True):
 
     if evalType in (PythonEvalType.SQL_SCALAR_PANDAS_UDF,
                     PythonEvalType.SQL_GROUPED_MAP_PANDAS_UDF):
@@ -67,7 +67,7 @@ def _create_udf(f, returnType, evalType):
 
     # Set the name of the UserDefinedFunction object to be the name of function f
     udf_obj = UserDefinedFunction(
-        f, returnType=returnType, name=None, evalType=evalType, deterministic=True)
+        f, returnType=returnType, name=None, evalType=evalType, deterministic=True, nullable=nullable)
     return udf_obj._wrapped()
 
 
@@ -81,7 +81,8 @@ class UserDefinedFunction(object):
                  returnType=StringType(),
                  name=None,
                  evalType=PythonEvalType.SQL_BATCHED_UDF,
-                 deterministic=True):
+                 deterministic=True,
+                 nullable=True):
         if not callable(func):
             raise TypeError(
                 "Invalid function: not a function or callable (__call__ is not defined): "
@@ -106,6 +107,7 @@ class UserDefinedFunction(object):
             else func.__class__.__name__)
         self.evalType = evalType
         self.deterministic = deterministic
+        self.nullable = nullable
 
     @property
     def returnType(self):
@@ -157,7 +159,7 @@ class UserDefinedFunction(object):
         wrapped_func = _wrap_function(sc, self.func, self.returnType)
         jdt = spark._jsparkSession.parseDataType(self.returnType.json())
         judf = sc._jvm.org.apache.spark.sql.execution.python.UserDefinedPythonFunction(
-            self._name, wrapped_func, jdt, self.evalType, self.deterministic)
+            self._name, wrapped_func, jdt, self.evalType, self.deterministic, self.nullable)
         return judf
 
     def __call__(self, *cols):
@@ -193,13 +195,16 @@ class UserDefinedFunction(object):
         wrapper.returnType = self.returnType
         wrapper.evalType = self.evalType
         wrapper.deterministic = self.deterministic
+        wrapper.nullable = self.nullable
         wrapper.asNondeterministic = functools.wraps(
             self.asNondeterministic)(lambda: self.asNondeterministic()._wrapped())
+        wrapper.asNonNullable = functools.wraps(
+            self.asNonNullable)(lambda: self.asNonNullable()._wrapped())
         return wrapper
 
     def asNondeterministic(self):
         """
-        Updates UserDefinedFunction to nondeterministic.
+        Updates :class":`UserDefinedFunction` to nondeterministic.
 
         .. versionadded:: 2.3
         """
@@ -207,6 +212,18 @@ class UserDefinedFunction(object):
         # with 'deterministic' updated. See SPARK-23233.
         self._judf_placeholder = None
         self.deterministic = False
+        return self
+
+    def asNonNullable(self):
+        """
+        Updates :class":`UserDefinedFunction` to non-nullable.
+
+        .. versionadded:: 2.3
+        """
+        # Here, we explicitly clean the cache to create a JVM UDF instance
+        # with 'deterministic' updated. See SPARK-23233.
+        self._judf_placeholder = None
+        self.nullable = False
         return self
 
 
@@ -312,7 +329,8 @@ class UDFRegistration(object):
                     "Invalid f: f must be either SQL_BATCHED_UDF or SQL_SCALAR_PANDAS_UDF")
             register_udf = UserDefinedFunction(f.func, returnType=f.returnType, name=name,
                                                evalType=f.evalType,
-                                               deterministic=f.deterministic)
+                                               deterministic=f.deterministic,
+                                               nullable=f.nullable)
             return_udf = f
         else:
             if returnType is None:
